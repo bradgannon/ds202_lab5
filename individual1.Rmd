@@ -1,0 +1,74 @@
+---
+title: "Individual1"
+author: "Brad Gannon"
+date: "April 16, 2019"
+output: html_document
+---
+
+Load data
+```{r}
+library("tidyverse")
+acc <- read.csv("https://raw.githubusercontent.com/xdaiISU/ds202materials/master/hwlabs/fars2017/accident.csv", stringsAsFactors = FALSE)
+names(acc)
+person <- read.csv("https://raw.githubusercontent.com/xdaiISU/ds202materials/master/hwlabs/fars2017/person.csv", stringsAsFactors=FALSE)
+```
+
+#Part one: Accident data
+```{r}
+# Are there some days of the week where more accidents happen than on others?
+p <- ggplot(acc, aes(x=DAY_WEEK)) + geom_histogram(color="black", fill="blue", binwidth = 0.5)
+p <- p + xlab("Day of Week (1=Sunday, 7=Saturday)") + ylab("Number of Accidents") + ggtitle("Number of Accidents by Day of Week")
+p
+```
+
+It appears that the rate of accidents increases on Thursday through Sunday, which would make sense.
+
+```{r}
+# What time of the day do accidents happen?
+p <- ggplot(acc, aes(x=HOUR)) + geom_histogram(color="red", fill="white", binwidth=2)
+p <- p + xlab("Hour") + ylab("Number of Accidents") + ggtitle("Number of Accidents by Hour")
+p
+```
+
+This histogram shows that accident rates tend to increase later in the day. The bar near 100 is signifying an unknown time of the accident.
+
+```{r}
+# What is the number of accidents with at least one drunk driver?
+dim(acc)
+wDrunk <- filter(acc, DRUNK_DR > 0)
+dim(wDrunk)
+```
+
+Based on the dimensions, it appears that 8769 out of 34247 accidents involved at least one drunk driver, which is a rate of 25.6%
+
+#Part two: Connecting data
+```{r}
+# Load the person table. Identify drivers (PER_TYPE == 1) and subset on them
+driver <- filter(person, PER_TYP == 1)
+```
+```{r}
+# Join accident and driver table (work out which variable(s) to use)
+# The ST_CASE variable is a unique number for each accident, will be sufficient to inner join tables
+accDriver <- merge(driver, acc, by="ST_CASE")
+```
+```{r}
+# Tally number of accidents by day of the week, hour of the day, and gender. Visualize the results!
+byDay <- ggplot(accDriver, aes(x=DAY_WEEK)) + geom_histogram(color="green", fill="grey26", binwidth=1)
+byDay <- byDay + xlab("Day of Week") + ylab("Number of Accidents") + ggtitle("Number of Accidents by Day of Week")
+byDay <- byDay + scale_x_continuous(breaks = seq(1, 7, 1))
+byDay
+
+byHour <- ggplot(accDriver, aes(x=HOUR.x)) + geom_histogram(color="red", fill="grey26", binwidth=1)
+byHour <- byHour + xlab("Hour") + ylab("Number of Accidents") + ggtitle("Number of Accidents by Hour")
+byHour
+
+byGend <- ggplot(accDriver, aes(x=SEX)) + geom_histogram(color="blue", fill="grey26", binwidth=1)
+byGend <- byGend + xlab("Gender (1=Male, 2=Female)") + ylab("Number of Accidents") + ggtitle("Number of Accidents by Gender")
+byGend <- byGend + scale_x_continuous(breaks = seq(0, 10, by=1))
+byGend
+```
+
+#Part three: Connecting data and make maps
+```{r}
+
+```
