@@ -1,0 +1,189 @@
+---
+title: "individual2.Rmd"
+author: "Seydou Yacouba"
+date: "April 17, 2019"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+theme_set(theme_light())
+acc <- read.csv("https://raw.githubusercontent.com/DS202-at-ISU/labs/master/data/fars2016/accident.csv", stringsAsFactors = FALSE)
+head(acc)
+```
+# Plot latitude and longitude on a map
+
+```{r}
+# acc %>%
+#  filter(LATITUDE == 99.9999) %>% head()
+```
+
+## Map
+```{r}
+acc %>%
+  filter(!LATITUDE > 99) %>%
+  filter(!LONGITUD > 500) %>%
+  ggplot(aes(y=LATITUDE, x=LONGITUD)) +
+  geom_point(size=0.1)
+```
+
+# Part One: Accident Data
+
+* Are there some days of the week more accidents happen than on others (use varible `DAY_WEEK`)
+
+```{r}
+acc %>%
+  group_by(DAY_WEEK) %>%
+  tally(sort=TRUE)
+```
+
+* what time of the day do accidents happen (use `variable HOUR`)?
+
+```{r fig.width=12, fig.height=10}
+acc %>%
+  filter(!HOUR > 24) %>%
+  group_by(HOUR) %>%
+  tally() %>%
+  ggplot(aes(x=HOUR, y=n)) +
+  geom_col() +
+  scale_x_continuous(breaks=seq(0,23))
+```
+__Highest fatality counts happen between noon and 10PM.__
+
+* what is the number of accidents with at least one drunk driver (use variable DRUNK_DR)?
+
+```{r fig.width=12, fig.height=10}
+acc %>%
+  filter(DRUNK_DR > 0) %>%
+  group_by(DRUNK_DR) %>%
+  tally()
+```
+
+__There are `r 8474 + 243 + 3` drunk driving accidents__
+
+
+# Part two: Connecting Data
+
+## Reading person data
+```{r}
+persons <- read_csv("https://raw.githubusercontent.com/DS202-at-ISU/labs/master/data/fars2016/person.csv")
+```
+
+* Connect to the person table. Identify drivers (`PER_TYP` == 1, see fars manual) and subset on them.
+
+### Subseting drivers data
+
+```{r}
+drivers <- persons %>%
+  filter(PER_TYP == 1)
+```
+
+* Join accident and driver table (work out which variable(s) to use)
+
+```{r}
+print(dim(acc))
+print(dim(drivers))
+```
+### Performing Joing
+* Joining on `STATE`, `MONTH`, `HOUR`
+
+```{r}
+joined <- left_join(acc, drivers, by=c("STATE", "MONTH", "HOUR"))
+```
+
+* Tally the number of accidents by day of the week (`DAY_WEEK`), hour of the day (`HOUR`) and gender (`SEX`).
+
+```{r}
+tally_join <- joined %>%
+                group_by(DAY_WEEK,HOUR,SEX) %>%
+                filter(HOUR < 24) %>%
+                filter(SEX < 3) %>%
+                tally()
+head(tally)
+```
+
+### Visualizing the results
+
+```{r fig.width=18, fig.height=10}
+days <- c("Mon", "Tue", "Wed", "Thur", "Fri", "Sat", "Sun")
+sex <- c("M","F")
+
+tally_join %>%
+  ggplot(aes(x = HOUR, y = n)) +
+    geom_point() + 
+    facet_wrap(factor(DAY_WEEK, labels = days ) ~ factor(SEX,labels = sex), 
+               scales = "free")
+```
+#Part three: Connecting data and make maps
+```{r}
+library(maps)
+counties <- map_data("county")
+
+```
+
+```{r warning=FALSE}
+glc <- readxl::read_excel("GLC.xlsx", skip = 1) %>%
+  select(c("State Name","State Code","County Code" ,"County Name"))
+
+names(glc) <- toupper(c("region","State","County" ,"subregion"))
+
+glc <- glc %>%
+  mutate(STATE = as.integer(STATE),
+         COUNTY= as.integer(COUNTY))
+```
+
+```{r}
+newdata <- acc %>%
+  group_by(STATE, COUNTY) %>%
+  summarise(Total= n()) %>% 
+  left_join(glc, by = c("STATE", "COUNTY") ) 
+names(newdata) <- tolower(names(newdata))
+```
+```{r}
+newdata$region <- tolower(newdata$region)
+newdata$subregion <- tolower(newdata$subregion)
+```
+
+```{r}
+#counties <- counties %>% mutate(region = toupper(region))
+choro <- inner_join(counties, newdata, by = c("region","subregion"))
+choro <- choro[order(choro$order), ]
+```
+
+```{r}
+ggplot(choro, aes(long, lat)) +
+  geom_polygon(aes(group = group, fill = total),color = "white") 
+```
+
+```{r warning=FALSE}
+states <- map_data("state")
+glc <- readxl::read_excel("GLC.xlsx", skip = 1) %>%
+  select(c("State Name","State Code")) %>%
+  mutate("State Code" = as.integer(`State Code`)) %>%
+  unique()
+
+names(glc) <- toupper(c("region","STATE"))
+
+'%ni%' <- Negate('%in%')
+
+w <- acc %>%
+  filter(WEATHER %ni% c(99,98)) %>%
+  #mutate(WEATHER_NAME = ifelse(WEATHER >=3,'Winter','Summer')) %>% # as.factor(WEATHER)) %>%
+  group_by(STATE,WEATHER) %>%
+  summarise(Total = n()) %>% 
+  left_join(y = glc, by = 'STATE')
+names(w) <- tolower(names(w))
+w$region <- tolower(w$region)
+w <- left_join(states, w, by="region")
+
+```
+```{r}
+ggplot(w, aes(long, lat)) +
+  geom_polygon(aes(group = group, fill = weather),color = "white")
+
+```
+
+
+
+
+
