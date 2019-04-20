@@ -70,5 +70,53 @@ byGend
 
 #Part three: Connecting data and make maps
 ```{r}
+library(maps)
+counties <- map_data("county")
 
+glc <- readxl::read_excel("GLC.xlsx", skip = 1) %>%
+  select(c("State Name","State Code","County Code" ,"County Name"))
+
+names(glc) <- toupper(c("region","State","County" ,"subregion"))
+
+glc <- glc %>%
+  mutate(STATE = as.integer(STATE),
+         COUNTY= as.integer(COUNTY))
+
+newdata <- acc %>%
+  group_by(STATE, COUNTY) %>%
+  summarise(Total= n()) %>% 
+  left_join(glc, by = c("STATE", "COUNTY") ) 
+names(newdata) <- tolower(names(newdata))
+
+newdata$region <- tolower(newdata$region)
+newdata$subregion <- tolower(newdata$subregion)
+
+choro <- inner_join(counties, newdata, by = c("region","subregion"))
+choro <- choro[order(choro$order), ]
+
+ggplot(choro, aes(long, lat)) +
+  geom_polygon(aes(group = group, fill = total),color = "white")
+
+states <- map_data("state")
+glc <- readxl::read_excel("GLC.xlsx", skip = 1) %>%
+  select(c("State Name","State Code")) %>%
+  mutate("State Code" = as.integer(`State Code`)) %>%
+  unique()
+
+names(glc) <- toupper(c("region","STATE"))
+
+'%ni%' <- Negate('%in%')
+
+w <- acc %>%
+  filter(WEATHER %ni% c(99,98)) %>%
+  #mutate(WEATHER_NAME = ifelse(WEATHER >=3,'Winter','Summer')) %>% # as.factor(WEATHER)) %>%
+  group_by(STATE,WEATHER) %>%
+  summarise(Total = n()) %>% 
+  left_join(y = glc, by = 'STATE')
+names(w) <- tolower(names(w))
+w$region <- tolower(w$region)
+w <- left_join(states, w, by="region")
+
+ggplot(w, aes(long, lat)) +
+  geom_polygon(aes(group = group, fill = weather),color = "white")
 ```
